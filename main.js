@@ -1,7 +1,26 @@
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import { exec, spawn, fork } from 'child_process';
-import { tmpdir } from 'os';
+import yargs from 'yargs';
+
+const args = yargs(process.argv.slice(2))
+    .option('input',
+        {
+            alias: 'i',
+            describe: 'Provide the location of the input file that contains the code',
+            type: 'string',
+            demandOption: true
+        })
+    .option('output',
+        {
+            alias: 'o',
+            describe: 'Provide the path to save the image',
+            type: 'string',
+            demandOption: true
+        }).help().argv;
+
+console.log(args);
+
 const runLocally = false;
 
 var serverProcess = null;
@@ -40,7 +59,7 @@ await page.goto(RAY_SO_URL);
 await new Promise(r => setTimeout(r, 3000));
 await page.evaluate(() => {
     navigator.clipboard.write = async function (data) {
-        var img  = await data[0].getType("image/png");
+        var img = await data[0].getType("image/png");
         var imgStr = await img.text();
 
         window.imgData = imgStr;
@@ -51,7 +70,7 @@ var element = await page.$(BUTTON1_LOCATOR);
 await element.click();
 element = await page.$(BUTTON2_LOCATOR);
 await element.click();
-await new Promise(r => setTimeout(r, 1500));
+await new Promise(r => setTimeout(r, 1000));
 
 var img = await page.evaluate("window.imgData");
 
