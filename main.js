@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import fs from 'fs';
-import { exec, spawn, fork } from 'child_process';
 import yargs from 'yargs';
+import { runServer } from './runner.js';
 
 const args = yargs(process.argv.slice(2))
     .option('input',
@@ -55,6 +55,12 @@ const args = yargs(process.argv.slice(2))
             default: 'Untitled'
         }
     )
+    .option('local', {
+        alias: 'l',
+        describe: 'Run the server locally',
+        type: 'boolean',
+        default: false
+    })
     .help().argv;
 
 if (!fs.existsSync(args.input)) {
@@ -68,9 +74,7 @@ if (outputDir.length > 0 && !fs.existsSync(outputDir)) {
     process.exit();
 }
 
-const runLocally = true;
-const port = 18432;
-const RAY_SO_URL = runLocally ? `http://localhost:${port}` : "https://ray.so/";
+var port = 0;
 
 //Reading the code from the input file
 const code = fs.readFileSync(args.input, 'utf8');
@@ -80,32 +84,16 @@ const codeBase64 = Buffer.from(code).toString('base64');
 //Building the parameters
 const parameters = `code=${encodeURIComponent(codeBase64)}&padding=${args.padding}&background=${args.background}&language=${args.language}&theme=${args.theme}&title=${args.title}`;
 
+
+if (args.local) {
+    port = await runServer();
+}
+
+const RAY_SO_URL = args.local ? `http://localhost:${port}` : "https://ray.so/";
 //Building the URL with parameter code encoded
 const url = `${RAY_SO_URL}#${parameters}`;
 
-var serverProcess = null;
-const cleanup = () => {
-    if (serverProcess != null) serverProcess.kill();
-    process.exit();
-};
 
-process.on('exit', () => {
-    cleanup();
-});
-process.on('SIGINT', cleanup);
-process.on('SIGTERM', cleanup);
-
-if (runLocally) {
-    const raySoProjectPath = process.env.RaySoPath;
-
-    if (!fs.existsSync(raySoProjectPath)) {
-        console.error("Please set the 'RaySoPath' environment variable before proceeding.");
-        process.exit();
-    }
-
-    serverProcess = spawn(`npm run dev -- "-p ${port}"`, { cwd: raySoProjectPath, stdio: 'inherit', shell: true });
-    //await new Promise(r => setTimeout(r, 7000));
-}
 const BUTTON1_LOCATOR = '[id^=radix-\\:]';
 const BUTTON2_LOCATOR = 'div ::-p-text( Copy Image)';
 const testing = true;
@@ -156,7 +144,6 @@ fs.writeFile(args.output, buff, async function (err) {
     process.exit();
 });
 
-await new Promise(r => setTimeout(r, 15000));
 await browser.close();
 process.exit();
 

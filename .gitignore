@@ -3,3 +3,6 @@ package-lock.json
 testcode.cpp
 .vscode/launch.json
 .gitignore
+code.png
+server_session
+output.png
