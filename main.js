@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import yargs from 'yargs';
-import { runServer } from './runner.js';
+import { runServer, cleanupChildrenProcesses } from './runner.js';
 
 const args = yargs(process.argv.slice(2))
     .option('input',
@@ -74,6 +74,7 @@ if (outputDir.length > 0 && !fs.existsSync(outputDir)) {
     process.exit();
 }
 
+var serverData = null;
 var port = 0;
 
 //Reading the code from the input file
@@ -86,7 +87,8 @@ const parameters = `code=${encodeURIComponent(codeBase64)}&padding=${args.paddin
 
 
 if (args.local) {
-    port = await runServer();
+    serverData = await runServer();
+    port = serverData.port;
 }
 
 const RAY_SO_URL = args.local ? `http://localhost:${port}` : "https://ray.so/";
@@ -134,17 +136,12 @@ await new Promise(r => setTimeout(r, 2250));
 var img = await page.evaluate("window.imgData");
 var buff = Buffer.from(img
     .replace(/^data:image\/(png|gif|jpeg);base64,/, ''), 'base64');
-fs.writeFile(args.output, buff, async function (err) {
-    if (err) {
-        return console.log(err);
-    }
-    console.log("Image has been saved to the output file.");
-
-    await browser.close();
-    process.exit();
-});
+await fs.promises.writeFile(args.output, buff);
+console.log("Image has been saved to the output file.");
 
 await browser.close();
+
+await cleanupChildrenProcesses(serverData.sessionId);
 process.exit();
 
 

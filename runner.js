@@ -1,9 +1,9 @@
 import getPort from 'get-port';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 
-import path from 'path';
 import psList from 'ps-list';
 import fs from 'fs';
+import crypto from 'crypto';
 
 //Function that reads the file 'server_session' and returns the pid:identifier pair
 const serverSessionFilePath = 'server_session';
@@ -39,16 +39,59 @@ async function findMatchingProcess(pid, identifier) {
 
     return null;
 }
+async function killProcessesByArgument(id) {
+    const powershellCommand = `
+        Get-WmiObject Win32_Process | 
+        Where-Object { $_.CommandLine -like "*${id}*" } | 
+        ForEach-Object {
+            try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch { }
+        }
+    `;
+
+    return new Promise((resolve, reject) => {
+        exec(`powershell -Command "${powershellCommand}"`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing PowerShell command: ${stderr}`);
+                reject(error);
+                return;
+            }
+            resolve(stdout);
+        });
+    });
+}
 
 var serverProcess = null;
-process.on('exit', () => {
+export async function cleanupChildrenProcesses(identifier) {
     if (serverProcess && serverProcess.exitCode == null) {
-        serverProcess.kill();
+        serverProcess.kill('SIGINT');
     }
+    //Kill all remaining processes with the same identifier
+    try {
+        const isWindows = process.platform === 'win32';
+
+        if (isWindows) {
+            await killProcessesByArgument(identifier);
+        } else {
+            const processes = await psList();
+
+            processes.forEach(p => {
+                if (p.cmd.includes(identifier)) {
+                    console.log(`Killing process with PID: ${p.pid}`);
+                    process.kill(p.pid, 'SIGINT');
+                }
+            });
+        }
+    } catch (error) {
+        console.error(`Couldn't kill processes with identifier ${identifier}: ${error.message}`);
+    }
+    await new Promise(r => setTimeout(r, 500));
+}
+process.on('exit', async () => {
+    serverProcess.kill('SIGINT');
 });
 export async function runServer() {
     var hasStarted = false;
-    const identifier = Math.random().toString(36).substring(7);
+    const sessionId = crypto.randomBytes(16).toString('hex');
 
     const raySoProjectPath = process.env.RaySoPath;
 
@@ -57,18 +100,17 @@ export async function runServer() {
         process.exit();
     }
 
-    const serverSession = readServerSession();
+    const serverSession = await readServerSession();
     if (serverSession != null) {
-        const { pid, identifier } = serverSession;
-        const processInfo = await findMatchingProcess(pid, identifier);
+        const processInfo = await findMatchingProcess(serverSession.pid, serverSession.identifier);
         if (processInfo) {
             console.log(`Server is already running with PID: ${pid}`);
             return serverSession.port;
         }
     }
- 
+
     const port = await getPort();
-    serverProcess = spawn(`npm start -- "-p ${port} --uid=${identifier}"`, { cwd: raySoProjectPath, stdio: 'pipe', shell: true });
+    serverProcess = spawn(`npm start -- "-p ${port} --uid=${sessionId}"`, { cwd: raySoProjectPath, stdio: 'pipe', shell: true });
 
     serverProcess.stdout.on('data', (data) => {
         const output = data.toString();
@@ -80,7 +122,7 @@ export async function runServer() {
 
     //Writing the server process PID and identifier to server_session file
     try {
-        await fs.promises.writeFile('server_session', `${serverProcess.pid}\n${identifier}`);
+        await fs.promises.writeFile('server_session', `${serverProcess.pid}\n${sessionId}\n${port}`);
     } catch (error) {
         console.error(`Failed to write server session file: ${error.message}`);
     }
@@ -99,7 +141,7 @@ export async function runServer() {
         await new Promise(r => setTimeout(r, 1000));
     }
 
-    return port;
+    return { port: port, sessionId: sessionId };
 }
 
 
