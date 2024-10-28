@@ -146,7 +146,7 @@ console.log("Image has been saved to the output file.");
 
 await browser.close();
 
-await cleanupChildrenProcesses(serverData.sessionId);
+if(args.local) await cleanupChildrenProcesses(serverData.sessionId);
 process.exit();
 
 

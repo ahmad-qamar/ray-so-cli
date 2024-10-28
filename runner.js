@@ -41,12 +41,8 @@ async function findMatchingProcess(pid, identifier) {
 }
 async function killProcessesByArgument(id) {
     const powershellCommand = `
-        Get-WmiObject Win32_Process | 
-        Where-Object { $_.CommandLine -like "*${id}*" } | 
-        ForEach-Object {
-            try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch { }
-        }
-    `;
+        Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like "*${id}*" } | 
+        ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop } catch { } }`;
 
     return new Promise((resolve, reject) => {
         exec(`powershell -Command "${powershellCommand}"`, (error, stdout, stderr) => {
