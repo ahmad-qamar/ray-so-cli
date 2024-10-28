@@ -5,5 +5,13 @@
     "ps-list": "^8.1.1",
     "puppeteer": "^23.6.0",
     "yargs": "^17.7.2"
-  }
+  },
+  "name": "ray-so-cli",
+  "version": "0.1.0",
+  "description": "A CLI tool that allows us to turn code snippets into images via the commandline with a wide variety of parameters that ray.so supports. The tool uses Puppeteer to render the code snippets into images.",
+  "main": "index.js",
+  "bin": {
+    "raysocli": "./index.js"
+  },
+  "author": "Ahmad Qamar"
 }
