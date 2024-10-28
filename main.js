@@ -61,6 +61,12 @@ const args = yargs(process.argv.slice(2))
         type: 'boolean',
         default: false
     })
+    .option('testing', {
+        alias: 'test',
+        describe: 'Enable testing mode',
+        type: 'boolean',
+        default: false
+    })
     .help().argv;
 
 if (!fs.existsSync(args.input)) {
@@ -98,10 +104,9 @@ const url = `${RAY_SO_URL}#${parameters}`;
 
 const BUTTON1_LOCATOR = '[id^=radix-\\:]';
 const BUTTON2_LOCATOR = 'div ::-p-text( Copy Image)';
-const testing = true;
 
 console.log("Starting the browser...");
-const browser = await puppeteer.launch({ headless: !testing });
+const browser = await puppeteer.launch({ headless: !args.testing });
 const context = browser.defaultBrowserContext();
 await context.overridePermissions(RAY_SO_URL, ['clipboard-read']);
 console.log("Browser has been initialized");
