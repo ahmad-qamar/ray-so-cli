@@ -108,7 +108,8 @@ const BUTTON1_LOCATOR = '[id^=radix-\\:]';
 const BUTTON2_LOCATOR = 'div ::-p-text( Copy Image)';
 
 console.log("Starting the browser...");
-const browser = await puppeteer.launch({ headless: !args.testing });
+
+const browser = await puppeteer.launch({ headless: !args.testing, args: ['--no-sandbox']});
 const context = browser.defaultBrowserContext();
 await context.overridePermissions(RAY_SO_URL, ['clipboard-read']);
 console.log("Browser has been initialized");
