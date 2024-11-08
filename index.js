@@ -69,6 +69,13 @@ const args = yargs(process.argv.slice(2))
         type: 'boolean',
         default: false
     })
+    .option('timeout-save', {
+        alias: 't-save',
+        describe: 'Timeout for saving the image',
+        type: 'number',
+        default: 3500
+    }
+    )
     .help().argv;
 
 if (!fs.existsSync(args.input)) {
@@ -103,18 +110,23 @@ const RAY_SO_URL = args.local ? `http://localhost:${port}` : "https://ray.so/";
 //Building the URL with parameter code encoded
 const url = `${RAY_SO_URL}#${parameters}`;
 
-
 const BUTTON1_LOCATOR = '[id^=radix-\\:]';
 const BUTTON2_LOCATOR = 'div ::-p-text( Copy Image)';
 
 console.log("Starting the browser...");
 
-const browser = await puppeteer.launch({ headless: !args.testing, args: ['--no-sandbox']});
+const browser = await puppeteer.launch({ headless: !args.testing, args: ['--no-sandbox'] });
 const context = browser.defaultBrowserContext();
 await context.overridePermissions(RAY_SO_URL, ['clipboard-read']);
 console.log("Browser has been initialized");
 const page = await browser.newPage();
 await page.goto(url, { waitUntil: 'load' });
+async function exitBrowser() {
+    await browser.close();
+
+    if (args.local) await cleanupChildrenProcesses(serverData.sessionId);
+    process.exit();
+}
 await page.evaluate(() => {
     navigator.clipboard.write = async function (data) {
         var img = await data[0].getType("image/png");
@@ -139,18 +151,20 @@ for (let tries = 0; tries < 3; tries++) {
 await new Promise(r => setTimeout(r, 200));
 element = await page.$(BUTTON2_LOCATOR);
 await element.click();
-await new Promise(r => setTimeout(r, 2250));
+await new Promise(r => setTimeout(r, args['timeout-save']));
 
 var img = await page.evaluate("window.imgData");
+if (img == undefined) {
+    console.error("Failed to save the image, please try increasing the timeout-save parameter.");
+    await exitBrowser();
+}
 var buff = Buffer.from(img
     .replace(/^data:image\/(png|gif|jpeg);base64,/, ''), 'base64');
 await fs.promises.writeFile(args.output, buff);
 console.log("Image has been saved to the output file.");
+await exitBrowser();
 
-await browser.close();
 
-if(args.local) await cleanupChildrenProcesses(serverData.sessionId);
-process.exit();
 
 
 
