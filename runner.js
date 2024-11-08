@@ -92,7 +92,7 @@ export async function runServer() {
     const raySoProjectPath = process.env.RaySoPath;
 
     if (!fs.existsSync(raySoProjectPath)) {
-        console.error("Please set the 'RaySoPath' environment variable before proceeding.");
+        console.error("Please set the 'RaySoPath' environment variable before proceeding.\nSetup:\n>Clone the ray.so repository via the command 'git clone https://github.com/raycast/ray-so.git'\n>Use 'npm install' to install the dependencies and 'npm run build' to build the Next.JS app.\n>Lastly, set the environment variable to the directory.");
         process.exit();
     }
 
